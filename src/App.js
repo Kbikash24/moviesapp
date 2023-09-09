@@ -1,21 +1,25 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import MoviesList from "./components/MoviesList";
 import "./App.css";
 import "./components/loader.css";
 
 function App() {
   const [movies, setMovies] = useState([]);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true); // Initially set to true
   const [error, setError] = useState(null);
   const [retrying, setRetrying] = useState(false);
   const retryDelay = 5000; // Retry after 5 seconds
 
-  async function fetchMoviesHandler() {
+  // Memoize the MoviesList component to avoid re-rendering when other state changes
+  const memoizedMoviesList = useMemo(() => <MoviesList movies={movies} />, [movies]);
+
+  // Create a useCallback for fetchMoviesHandler to prevent unnecessary re-renders
+  const fetchMoviesHandler = useCallback(async () => {
     setIsLoading(true);
     setError(null);
 
     try {
-      const response = await fetch("https://swapi.dev/api/film/");
+      const response = await fetch("https://swapi.dev/api/films/");
       if (!response.ok) {
         throw new Error("Something went wrong");
       }
@@ -37,22 +41,22 @@ function App() {
       // Retry after the specified delay
       setTimeout(() => {
         setRetrying(false);
-        fetchMoviesHandler(); // Retry the fetch
       }, retryDelay);
-    } 
+    } finally {
       setIsLoading(false);
-    
-  }
+    }
+  }, [retryDelay]);
+
+  useEffect(() => {
+    // Fetch data when the component mounts and on page reload
+    fetchMoviesHandler();
+  }, [fetchMoviesHandler]);
 
   function cancelRetryHandler() {
     setRetrying(false);
   }
 
-  let content = <p>no movies found</p>;
-
-  if (movies.length > 0) {
-    content = <MoviesList movies={movies} />;
-  }
+  let content = isLoading ? <p className="loader"></p> : memoizedMoviesList;
 
   if (error) {
     content = (
@@ -72,14 +76,10 @@ function App() {
     );
   }
 
-  if (isLoading) {
-    content = <p className="loader"></p>;
-  }
-
   return (
     <React.Fragment>
       <section>
-        <button onClick={fetchMoviesHandler}>Fetch Movies</button>
+        <h1>Star Wars Movies</h1>
       </section>
       <section>{content}</section>
     </React.Fragment>
